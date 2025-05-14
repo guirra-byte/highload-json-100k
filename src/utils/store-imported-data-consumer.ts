@@ -35,6 +35,7 @@ const execute = async (msg: ConsumeMessage | null) => {
         }
 
         if (operation.status === "rejected") {
+          
         }
       });
     });
