@@ -30,7 +30,7 @@ export class ImportUsersService {
       let [leftIndex, rightIndex] = [0, MAX_HIGHLOAD_DATA];
       let currentBatch = `${leftIndex}-${rightIndex}`;
 
-      upcomingPayloads.map(async (uPayload, index) => {
+      upcomingPayloads.map((uPayload, index) => {
         if (index >= leftIndex && index < rightIndex) {
           if (index === leftIndex || !highloadBatches[currentBatch]) {
             highloadBatches[currentBatch] = [uPayload];

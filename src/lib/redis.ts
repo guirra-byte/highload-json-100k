@@ -1,17 +1,16 @@
-import redis, { RedisClientType } from "redis";
+import { RedisClientType, createClient } from "redis";
 
-export class RedisServer {
-  private _instance: RedisClientType;
+export class Redis {
+  private client: RedisClientType;
 
-  async createConnection() {
-    if (!this._instance) {
-      this._instance = redis.createClient();
-    }
+  async start(originLog?: string) {
+    this.client = createClient();
+    await this.client.connect();
 
-    console.log("Redis Server is running!");
+    console.log(originLog ?? "Redis is running!");
   }
 
-  get client() {
-    return this._instance;
+  get _client() {
+    return this.client;
   }
 }

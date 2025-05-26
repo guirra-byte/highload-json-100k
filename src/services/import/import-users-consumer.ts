@@ -1,64 +1,70 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { ConsumeMessage, Message } from "amqplib";
 import { UpcomingPayloadProps } from "../../types/types";
-import { rabbitMq, redis } from "../../../bootstrap";
+import { redis } from "../../../bootstrap";
+import amqp from "amqplib";
 
-const execute = async (msg: ConsumeMessage | null) => {
-  if (msg) {
-    const [, batchTag] = msg.fields.routingKey.split(".");
-    const payload = JSON.parse(
-      msg.content.toString("utf-8")
-    ) as UpcomingPayloadProps[];
+config();
+const Consumer = () => {
+  const amqpConnectionUrl = process.env.RABBITMQ_CONNECTION_URL;
+  if (!amqpConnectionUrl) return undefined;
 
-    console.log(`Processing ${batchTag}`);
-    const storeMany = payload.map((uPayload) => {
-      return new Promise(async (resolve, reject) => {
-        try {
-          await redis._client.set(`${uPayload.id}`, JSON.stringify(uPayload));
-
-          const ackPayload = { msg, data: uPayload };
-          resolve(ackPayload);
-        } catch (error) {
-          const auditErrorPayload = { error, data: uPayload };
-          reject(auditErrorPayload);
-        }
-      });
-    });
-
-    await Promise.allSettled(storeMany).then((operations) => {
-      operations.map(async (operation) => {
-        if (operation.status === "fulfilled") {
-          const { msg, data } = operation.value as {
-            msg: Message;
-            data: UpcomingPayloadProps;
-          };
-
-          rabbitMq._channel.ack(msg);
-          console.log(`${data.id} has been processed!`);
-        }
-
-        if (operation.status === "rejected") {
-        }
-      });
-    });
-
-    console.log("Whole Data has been stored!");
-  }
+  return amqp.connect(amqpConnectionUrl);
 };
 
 const ImportUsersConsumer = async () => {
   console.log("import-user-consumer is running!");
-  await rabbitMq.start("RabbitMq is running in import-user-consumer");
-  await redis.start("Redis is running in import-user-consumer");
 
-  await rabbitMq._channel.assertExchange("store_exchange", "topic");
-  await rabbitMq._channel.assertQueue("store", { durable: false });
+  const rabbitMq = await Consumer();
+  if (!rabbitMq) return;
 
-  await rabbitMq._channel.bindQueue("store", "store_exchange", "store.#");
-  rabbitMq._channel.prefetch(1);
-  await rabbitMq._channel.consume("store", (msg: ConsumeMessage | null) =>
-    execute(msg)
-  );
+  const channel = await rabbitMq.createConfirmChannel();
+  await channel.assertExchange("store_exchange", "topic");
+  await channel.assertQueue("store", { durable: false });
+
+  await channel.bindQueue("store", "store_exchange", "store.#");
+  channel.prefetch(1);
+
+  await redis.start();
+  await channel.consume("store", async (msg: ConsumeMessage | null) => {
+    if (msg) {
+      const [, batchTag] = msg.fields.routingKey.split(".");
+      const payload = JSON.parse(
+        msg.content.toString("utf-8")
+      ) as UpcomingPayloadProps[];
+
+      console.log(`Processing ${batchTag}`);
+      const storeMany = payload.map((uPayload) => {
+        return new Promise(async (resolve, reject) => {
+          try {
+            await redis._client.set(`${uPayload.id}`, JSON.stringify(uPayload));
+            const ackPayload = { msg, data: uPayload };
+
+            resolve(ackPayload);
+          } catch (error) {
+            const auditErrorPayload = { error, data: uPayload };
+            reject(auditErrorPayload);
+          }
+        });
+      });
+
+      await Promise.allSettled(storeMany).then((operations) => {
+        operations.map(async (operation) => {
+          if (operation.status === "fulfilled") {
+            const { msg, data } = operation.value as {
+              msg: Message;
+              data: UpcomingPayloadProps;
+            };
+          }
+
+          if (operation.status === "rejected") {
+          }
+        });
+      });
+
+      console.log("Whole Data has been stored!");
+    }
+  }, { noAck: true });
 };
 
 ImportUsersConsumer();
