@@ -3,7 +3,6 @@ import { app } from "./app";
 import { cachedReplyMiddleware } from "./utils/middleware/cached-reply-middleware";
 import { ControllerTag } from "./controllers/cache-request-consumer";
 import { ImportUsersService } from "./services/import/import-users";
-import "./services/import/import-users-consumer";
 import { rabbitMq, redis } from "../bootstrap";
 
 const cachePreHandler = async (
@@ -27,7 +26,7 @@ app.route({
   preHandler: cachePreHandler,
   handler: async (_request: FastifyRequest, reply: FastifyReply) => {
     await importUsersService.execute();
-    return reply.send().status(201);
+    // return reply.send().status(201);
   },
 });
 
