@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "name": "[API]-highload-100k-json",
+      "script": "./dist/src/server.js",
+      "watch": false,
+      "out_file": "./logs/[API]-highload-100k-json-out.log",
+      "error_file": "./logs/[API]-highload-100k-json-error.log",
+      "instances": 1,
+      "max_memory_restart": "300M"
+    },
+    {
+      "name": "[CONSUMER]-import-users",
+      "script": "./dist/src/services/import/import-users-consumer.js",
+      "watch": false,
+      "out_file": "./logs/[CONSUMER]-import-users-consumer-out.log",
+      "error_file": "./logs/[CONSUMER]-import-users-consumer-error.log",
+      "instances": 5,
+      "max_memory_restart": "300M"
+    }
+  ]
+}
